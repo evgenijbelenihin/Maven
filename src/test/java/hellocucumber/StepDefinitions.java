@@ -2,14 +2,13 @@ package hellocucumber;
 
 import static io.restassured.RestAssured.given;
 
-import hellocucumber.Models.ChartDataModel;
-import hellocucumber.Models.SecuritiesModel;
+import Core.ChartDataModel;
+import Core.Security;
+import io.cucumber.datatable.DataTable;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
-import io.cucumber.java.en.When;
 import io.restassured.response.Response;
-import java.util.Map;
-import lombok.var;
+import java.util.List;
 import org.junit.Assert;
 
 public class StepDefinitions {
@@ -17,11 +16,9 @@ public class StepDefinitions {
     String              SecuritiesUrl;
     String              RequestChartDataUrl;
     Response response;
-    SecuritiesModel     securitiesModel;
     String[]            securities;
-    ChartDataModel chartDataModel;
 
-    @Given("I have MICROSERVICES_SERVER_URL equals {string}")
+    @Given("^I have MICROSERVICES_SERVER_URL equals ([^\"]*)$")
     public void i_have_MICROSERVICES_SERVER_URL_equals(String serverUrl) {
         BaseUrl = serverUrl;
     }
@@ -30,7 +27,7 @@ public class StepDefinitions {
     public void iGetSecuritiesFromMICROSERVICES_SERVER_URLSrvgtwMarketdataVSecurities(String controllerAndMethod) {
         SecuritiesUrl = BaseUrl + controllerAndMethod;
         response = given().when().get(SecuritiesUrl);
-        securitiesModel = response.as(SecuritiesModel.class);
+        Security securitiesModel = response.as(Security.class);
         securities      = securitiesModel.getSecurities();
     }
 
@@ -39,32 +36,28 @@ public class StepDefinitions {
         RequestChartDataUrl = BaseUrl + controllerAndMethod;
     }
 
-    @When("^I send get request for every security with ([^\"]*) and ([^\"]*) parameters$")
-    public void iSendGetRequestForEverySecurityWithVariousBartypeParameters(String bartype, Integer count) {
-        for (int i = 0; i < securities.length; i++) {
+    @Then("^I send get request for every security with ([^\"]*) and (\\d+) parameters, assert results$")
+    public void iSendGetRequestForEverySecurityWithVariousBartypeParameters(String bartype, int count) {
+        for (int i = 0; i < 2/*securities.length*/; i++) {
             response = given().when().get(RequestChartDataUrl + "security=" + securities[i] + "&bartype=" + bartype + "&count=" + count);
-            chartDataModel = response.as(ChartDataModel.class);
+            ChartDataModel chartDataModel = response.as(ChartDataModel.class);
             Assert.assertEquals(200, response.getStatusCode());
-            Assert.assertEquals(count, (Integer)chartDataModel.getBars().length);
+            Assert.assertEquals(count, chartDataModel.getBars().size());
             Assert.assertEquals(securities[i],chartDataModel.getSecurity());
             Assert.assertEquals(bartype, chartDataModel.getBarType());
         }
     }
 
-    @Then("Response status code equals {int}")
+    @Then("^Response status code equals (\\d+)$")
     public void response_status_code_equals(long statusCode) {
         Assert.assertEquals(statusCode, response.getStatusCode());
     }
 
-    @Then("Names of fields in response in container bars should be equal with data in table")
-    public void Names_of_fields_in_response_in_container_bars_should_be_equal_with_data_in_table(io.cucumber.datatable.DataTable dataTable) {
-        chartDataModel = response.as(ChartDataModel.class);
-        Map<String, Long>[] bars = chartDataModel.getBars();
-
-        var listOfExpectedFields = dataTable.rows(1).asList();
-
-        for (int i = 0; i < listOfExpectedFields.size(); i++){
-            Assert.assertTrue(bars[0].containsKey(listOfExpectedFields.get(i)));
+    @Then("^Names of fields in response in container bars should be equal with data in table$")
+    public void Names_of_fields_in_response_in_container_bars_should_be_equal_with_data_in_table(DataTable dataTable) {
+        List<String> listOfExpectedFields = dataTable.rows(1).asList();
+        for (String listOfExpectedField : listOfExpectedFields) {
+            Assert.assertTrue(response.asString().contains(listOfExpectedField));
         }
     }
 
